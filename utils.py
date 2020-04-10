@@ -3,7 +3,16 @@ from pathlib import Path
 import numpy as np
 import scipy.sparse as sp
 
-def load_data(path: Path='data/cora', dataset: str='cora'):
+
+def encode_onehot(labels):
+    classes = set(labels)
+    classes_dict = {c: np.identity(len(classes))[i, :] for i, c in
+                    enumerate(classes)}
+    labels_onehot = np.array(list(map(classes_dict.get, labels)),
+                             dtype=np.int32)
+    return labels_onehot
+
+def load_data(path: Path='data/cora/', dataset: str='cora'):
     """Load citation network dataset (cora only for now)"""
     print('Loading {} dataset...'.format(dataset))
 
@@ -33,13 +42,11 @@ def load_data(path: Path='data/cora', dataset: str='cora'):
     idx_val = range(200, 500)
     idx_test = range(500, 1500)
 
-    features = torch.FloatTensor(np.array(features.todense()))
-    labels = torch.LongTensor(np.where(labels)[1])
-    adj = sparse_mx_to_torch_sparse_tensor(adj)
+    features = np.array(features.todense())
+    labels = np.where(labels)[1]
 
-    idx_train = torch.LongTensor(idx_train)
-    idx_val = torch.LongTensor(idx_val)
-    idx_test = torch.LongTensor(idx_test)
+    # JAX doesn't yet support sparse matrices
+    adj = adj.todense()
 
     return adj, features, labels, idx_train, idx_val, idx_test
 

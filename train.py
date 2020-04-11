@@ -15,7 +15,9 @@ def loss(params, batch):
     """
     inputs, targets, adj, is_training, rng, idx = batch
     preds = predict_fun(params, inputs, adj, is_training=is_training, rng=rng)
-    return -np.mean(np.sum(preds[idx] * targets[idx], axis=1))
+    ce_loss = -np.mean(np.sum(preds[idx] * targets[idx], axis=1))
+    l2_loss = 5e-4 * optimizers.l2_norm(params)
+    return ce_loss + l2_loss
 
 
 def accuracy(params, batch):
@@ -36,7 +38,7 @@ if __name__ == "__main__":
     dropout = 0.5
     step_size = 0.01
     hidden = 16
-    num_epochs = 200
+    num_epochs = 150
     n_nodes = adj.shape[0]
     n_feats = features.shape[1]
 
@@ -62,13 +64,16 @@ if __name__ == "__main__":
         opt_state = update(epoch, opt_state, batch)
         epoch_time = time.time() - start_time
 
-        params = get_params(opt_state)
-        eval_batch = (features, labels, adj, False, rng_key, idx_val)
-        train_batch = (features, labels, adj, False, rng_key, idx_train)
-        train_loss = loss(params, train_batch)
-        train_acc = accuracy(params, train_batch)
-        val_acc = accuracy(params, eval_batch)
-        print("Epoch {} in {:0.2f} sec".format(epoch, epoch_time))
-        print("Training set loss {}".format(train_loss))
-        print("Training set accuracy {}".format(train_acc))
-        print("Val set accuracy {}".format(val_acc))
+        if epoch % 5 == 0:
+            params = get_params(opt_state)
+            eval_batch = (features, labels, adj, False, rng_key, idx_val)
+            train_batch = (features, labels, adj, False, rng_key, idx_train)
+            train_loss = loss(params, train_batch)
+            train_acc = accuracy(params, train_batch)
+            val_acc = accuracy(params, eval_batch)
+            print(f"Iter {epoch}/{num_epochs} ({epoch_time:.4f} s) train_loss: {train_loss:.4f}, train_acc: {train_acc:.4f}, val_acc: {val_acc:.4f}")
+    
+    # now run on the test set
+    test_batch = (features, labels, adj, False, rng_key, idx_test)
+    test_acc = accuracy(params, test_batch)
+    print(f'Test set acc: {test_acc}')

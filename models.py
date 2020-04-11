@@ -1,8 +1,10 @@
+import math
+
 import jax.numpy as np
 from jax import lax, random
 from jax.experimental import stax
 from jax.experimental.stax import Relu, LogSoftmax
-from jax.nn.initializers import glorot_normal, normal, ones, zeros
+from jax.nn.initializers import glorot_normal, normal, uniform
 
 
 def Dropout(rate):
@@ -29,14 +31,17 @@ def Dropout(rate):
     return init_fun, apply_fun
 
 
-def GraphConvolution(out_dim, W_init=glorot_normal(), b_init=normal()):
+def GraphConvolution(out_dim):
     """
     Layer constructor function for a Graph Convolution layer similar to https://arxiv.org/abs/1609.02907
     """
     def init_fun(rng, input_shape):
         output_shape = input_shape[:-1] + (out_dim,)
         k1, k2 = random.split(rng)
-        W, b = W_init(k1, (input_shape[-1], out_dim)), b_init(k2, (out_dim,))
+        stdv = 1. / math.sqrt(out_dim)
+        W_init, b_init = uniform(stdv), uniform(stdv)
+        W = W_init(k1, (input_shape[-1], out_dim))
+        b = b_init(k2, (out_dim,))
         return output_shape, (W, b)
 
     def apply_fun(params, x, adj, **kwargs):

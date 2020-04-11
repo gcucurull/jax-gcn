@@ -1,33 +1,32 @@
 import jax.numpy as np
-from jax import jit, grad, random
+from jax import lax, random
 from jax.experimental import stax
 from jax.experimental.stax import Relu, LogSoftmax
 from jax.nn.initializers import glorot_normal, normal, ones, zeros
 
 
 def Dropout(rate):
-  """
-  Layer construction function for a dropout layer with given rate.
-  This Dropout layer is modified from stax.experimental.Dropout, to use
-  `is_training` as an argument to apply_fun, instead of defining it at
-  definition time.
-  """
-  def init_fun(rng, input_shape):
-    return input_shape, ()
-  def apply_fun(params, inputs, is_training, **kwargs):
-    rng = kwargs.get('rng', None)
-    if rng is None:
-      msg = ("Dropout layer requires apply_fun to be called with a PRNG key "
-             "argument. That is, instead of `apply_fun(params, inputs)`, call "
-             "it like `apply_fun(params, inputs, rng)` where `rng` is a "
-             "jax.random.PRNGKey value.")
-      raise ValueError(msg)
-    if is_training:
-      keep = random.bernoulli(rng, rate, inputs.shape)
-      return np.where(keep, inputs / rate, 0)
-    else:
-      return inputs
-  return init_fun, apply_fun
+    """
+    Layer construction function for a dropout layer with given rate.
+    This Dropout layer is modified from stax.experimental.Dropout, to use
+    `is_training` as an argument to apply_fun, instead of defining it at
+    definition time.
+    """
+    def init_fun(rng, input_shape):
+        return input_shape, ()
+    def apply_fun(params, inputs, is_training, **kwargs):
+        rng = kwargs.get('rng', None)
+        if rng is None:
+            msg = ("Dropout layer requires apply_fun to be called with a PRNG key "
+                   "argument. That is, instead of `apply_fun(params, inputs)`, call "
+                   "it like `apply_fun(params, inputs, rng)` where `rng` is a "
+                   "jax.random.PRNGKey value.")
+            raise ValueError(msg)
+        keep = random.bernoulli(rng, rate, inputs.shape)
+        outs = np.where(keep, inputs / rate, 0)
+        # if not training, just return inputs and discard any computation done
+        return lax.cond(is_training, outs, lambda x: x, inputs, lambda x: x)
+    return init_fun, apply_fun
 
 
 def GraphConvolution(out_dim, W_init=glorot_normal(), b_init=normal()):

@@ -38,9 +38,9 @@ def load_data(path: Path='data/cora/', dataset: str='cora'):
     features = normalize(features)
     adj = normalize(adj + sp.eye(adj.shape[0]))
 
-    idx_train = range(140)
-    idx_val = range(200, 500)
-    idx_test = range(500, 1500)
+    idx_train = list(range(140))
+    idx_val = list(range(200, 500))
+    idx_test = list(range(500, 1500))
 
     features = np.array(features.todense())
     # labels = np.where(labels)[1]

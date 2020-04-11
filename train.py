@@ -10,16 +10,19 @@ from models import GCN
 
 
 def loss(params, batch):
-    inputs, targets, adj, is_training, rng = batch
+    """
+    The idxes of the batch indicate which nodes are used to compute the loss.
+    """
+    inputs, targets, adj, is_training, rng, idx = batch
     preds = predict_fun(params, inputs, adj, is_training=is_training, rng=rng)
-    return -np.mean(np.sum(preds * targets, axis=1))
+    return -np.mean(np.sum(preds[idx] * targets[idx], axis=1))
 
 
 def accuracy(params, batch):
-    inputs, targets, adj, is_training, rng = batch
+    inputs, targets, adj, is_training, rng, idx = batch
     target_class = np.argmax(targets, axis=1)
     predicted_class = np.argmax(predict_fun(params, inputs, adj, is_training=is_training, rng=rng), axis=1)
-    return np.mean(predicted_class == target_class)
+    return np.mean(predicted_class[idx] == target_class[idx])
 
 
 if __name__ == "__main__":
@@ -37,7 +40,6 @@ if __name__ == "__main__":
     n_nodes = adj.shape[0]
     n_feats = features.shape[1]
 
-
     init_fun, predict_fun = GCN(nhid=hidden, 
                                 nclass=labels.shape[1],
                                 dropout=dropout)
@@ -46,7 +48,7 @@ if __name__ == "__main__":
 
     opt_init, opt_update, get_params = optimizers.adam(step_size)
 
-    #@jit
+    @jit
     def update(i, opt_state, batch):
         params = get_params(opt_state)
         return opt_update(i, grad(loss)(params, batch), opt_state)
@@ -56,20 +58,17 @@ if __name__ == "__main__":
     print("\nStarting training...")
     for epoch in range(num_epochs):
         start_time = time.time()
-        batch = (features, labels, adj, True, rng_key)
+        batch = (features, labels, adj, True, rng_key, idx_train)
         opt_state = update(epoch, opt_state, batch)
         epoch_time = time.time() - start_time
 
         params = get_params(opt_state)
-        eval_batch = (features, labels, adj, False, rng_key)
-        train_loss = loss(params, eval_batch)
-        train_acc = accuracy(params, eval_batch)
-        test_acc = accuracy(params, eval_batch)
+        eval_batch = (features, labels, adj, False, rng_key, idx_val)
+        train_batch = (features, labels, adj, False, rng_key, idx_train)
+        train_loss = loss(params, train_batch)
+        train_acc = accuracy(params, train_batch)
+        val_acc = accuracy(params, eval_batch)
         print("Epoch {} in {:0.2f} sec".format(epoch, epoch_time))
         print("Training set loss {}".format(train_loss))
         print("Training set accuracy {}".format(train_acc))
-        print("Test set accuracy {}".format(test_acc))
-
-
-
-    # preds = predict_fun(init_params, features, adj, rng=rng_key, is_training=True)
+        print("Val set accuracy {}".format(val_acc))

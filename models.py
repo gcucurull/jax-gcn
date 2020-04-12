@@ -5,6 +5,7 @@ from jax import lax, random
 from jax.experimental import stax
 from jax.experimental.stax import Relu, LogSoftmax
 from jax.nn.initializers import glorot_normal, normal, uniform
+import jax.nn as nn
 
 
 def Dropout(rate):
@@ -13,6 +14,9 @@ def Dropout(rate):
     This Dropout layer is modified from stax.experimental.Dropout, to use
     `is_training` as an argument to apply_fun, instead of defining it at
     definition time.
+
+    Arguments:
+        rate (float): Probability of keeping and element.
     """
     def init_fun(rng, input_shape):
         return input_shape, ()
@@ -27,7 +31,8 @@ def Dropout(rate):
         keep = random.bernoulli(rng, rate, inputs.shape)
         outs = np.where(keep, inputs / rate, 0)
         # if not training, just return inputs and discard any computation done
-        return lax.cond(is_training, outs, lambda x: x, inputs, lambda x: x)
+        out = lax.cond(is_training, outs, lambda x: x, inputs, lambda x: x)
+        return out
     return init_fun, apply_fun
 
 
@@ -59,13 +64,10 @@ def GCN(nhid, nclass, dropout):
     the adjacency matrix as an argument to the GC layers but not the others.
     """
     gc1_init, gc1_fun = GraphConvolution(nhid)
-    relu_init, relu_fun = Relu
-    drop_init, drop_fun = Dropout(dropout)
+    _, drop_fun = Dropout(dropout)
     gc2_init, gc2_fun = GraphConvolution(nclass)
-    ls_init, ls_fun = LogSoftmax
 
-    init_funs = [gc1_init, relu_init, drop_init, gc2_init, ls_init]
-    nlayers = len(init_funs)
+    init_funs = [gc1_init, gc2_init]
 
     def init_fun(rng, input_shape):
         params = []
@@ -77,13 +79,12 @@ def GCN(nhid, nclass, dropout):
 
     def apply_fun(params, x, adj, is_training=False, **kwargs):
         rng = kwargs.pop('rng', None)
-        rngs = random.split(rng, nlayers) if rng is not None else (None,) * nlayers
-        
+
         x = gc1_fun(params[0], x, adj, rng=rng)
-        x = relu_fun(params[1], x, rng=rng)
-        x = drop_fun(params[2], x, is_training=is_training, rng=rng)
-        x = gc2_fun(params[3], x, adj, rng=rng)
-        x = ls_fun(params[4], x, rng=rng)
+        x = nn.relu(x)
+        x = drop_fun(None, x, is_training=is_training, rng=rng)
+        x = gc2_fun(params[1], x, adj, rng=rng)
+        x = nn.log_softmax(x)
         return x
     
     return init_fun, apply_fun

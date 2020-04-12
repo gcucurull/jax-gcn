@@ -60,7 +60,6 @@ if __name__ == "__main__":
     opt_state = opt_init(init_params)
 
     print("\nStarting training...")
-    # with jax.disable_jit():
     for epoch in range(num_epochs):
         start_time = time.time()
         batch = (features, labels, adj, True, rng_key, idx_train)
@@ -75,7 +74,8 @@ if __name__ == "__main__":
             train_acc = accuracy(params, train_batch)
             val_acc = accuracy(params, eval_batch)
             print(f"Iter {epoch}/{num_epochs} ({epoch_time:.4f} s) train_loss: {train_loss:.4f}, train_acc: {train_acc:.4f}, val_acc: {val_acc:.4f}")
-        
+
+        # new random key at each iteration, othwerwise dropout uses always the same mask 
         rng_key, _ = random.split(rng_key)
     
     # now run on the test set

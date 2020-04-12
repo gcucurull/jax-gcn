@@ -43,9 +43,8 @@ def load_data(path: Path='data/cora/', dataset: str='cora'):
     idx_test = list(range(500, 1500))
 
     features = np.array(features.todense())
-    # labels = np.where(labels)[1]
 
-    # JAX doesn't yet support sparse matrices
+    # JAX doesn't support sparse matrices yet
     adj = np.asarray(adj.todense())
 
     return adj, features, labels, idx_train, idx_val, idx_test

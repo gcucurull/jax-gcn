@@ -12,11 +12,14 @@ def encode_onehot(labels):
                              dtype=np.int32)
     return labels_onehot
 
-def load_data(path: Path='data/cora/', dataset: str='cora'):
-    """Load citation network dataset (cora only for now)"""
+def load_data(path: Path=Path('data/cora/'), dataset: str='cora'):
+    """
+    Load citation network dataset (cora only for now).
+    This function has been adapted from https://github.com/tkipf/pygcn
+    """
     print('Loading {} dataset...'.format(dataset))
 
-    idx_features_labels = np.genfromtxt("{}{}.content".format(path, dataset),
+    idx_features_labels = np.genfromtxt("{}.content".format(path / dataset),
                                         dtype=np.dtype(str))
     features = sp.csr_matrix(idx_features_labels[:, 1:-1], dtype=np.float32)
     labels = encode_onehot(idx_features_labels[:, -1])
@@ -24,7 +27,7 @@ def load_data(path: Path='data/cora/', dataset: str='cora'):
     # build graph
     idx = np.array(idx_features_labels[:, 0], dtype=np.int32)
     idx_map = {j: i for i, j in enumerate(idx)}
-    edges_unordered = np.genfromtxt("{}{}.cites".format(path, dataset),
+    edges_unordered = np.genfromtxt("{}.cites".format(path / dataset),
                                     dtype=np.int32)
     edges = np.array(list(map(idx_map.get, edges_unordered.flatten())),
                      dtype=np.int32).reshape(edges_unordered.shape)

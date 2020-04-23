@@ -30,16 +30,22 @@ def accuracy(params, batch):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--hidden', type=int, default=16)
+    parser.add_argument('--epochs', type=int, default=200)
+    parser.add_argument('--dropout', type=float, default=0.5)
+    parser.add_argument('--lr', type=float, default=0.01)
+    parser.add_argument('--infusion', type=str, default='inner')
     args = parser.parse_args()
 
     # Load data
     adj, features, labels, idx_train, idx_val, idx_test = load_data()
 
-    rng_key = random.PRNGKey(0)
-    dropout = 0.5
-    step_size = 0.01
-    hidden = 16
-    num_epochs = 200
+    rng_key = random.PRNGKey(args.seed)
+    dropout = args.dropout
+    step_size = args.lr
+    hidden = args.hidden
+    num_epochs = args.epochs
     n_nodes = adj.shape[0]
     n_feats = features.shape[1]
 

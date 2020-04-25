@@ -1,6 +1,7 @@
 import argparse
 import time
 
+import numpy
 import jax
 import jax.numpy as np
 from jax import jit, grad, random
@@ -17,7 +18,7 @@ def loss(params, batch):
     inputs, targets, adj, is_training, rng, idx = batch
     preds = predict_fun(params, inputs, adj, is_training=is_training, rng=rng)
     ce_loss = -np.mean(np.sum(preds[idx] * targets[idx], axis=1))
-    l2_loss = 5e-4 * optimizers.l2_norm(params)
+    l2_loss = 5e-4 * optimizers.l2_norm(params)**2 # tf doesn't use sqrt
     return ce_loss + l2_loss
 
 @jit
@@ -27,6 +28,16 @@ def accuracy(params, batch):
     predicted_class = np.argmax(predict_fun(params, inputs, adj, is_training=is_training, rng=rng), axis=1)
     return np.mean(predicted_class[idx] == target_class[idx])
 
+@jit
+def loss_accuracy(params, batch):
+    inputs, targets, adj, is_training, rng, idx = batch
+    preds = predict_fun(params, inputs, adj, is_training=is_training, rng=rng)
+    target_class = np.argmax(targets, axis=1)
+    predicted_class = np.argmax(preds, axis=1)
+    ce_loss = -np.mean(np.sum(preds[idx] * targets[idx], axis=1))
+    acc = np.mean(predicted_class[idx] == target_class[idx])
+    return ce_loss, acc
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -35,11 +46,12 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--infusion', type=str, default='inner')
+    parser.add_argument('--early_stop', type=int, default=10)
+    parser.add_argument('--dataset', type=str, default='cora')
     args = parser.parse_args()
 
     # Load data
-    adj, features, labels, idx_train, idx_val, idx_test = load_data()
+    adj, features, labels, idx_train, idx_val, idx_test = load_data(args.dataset)
 
     rng_key = random.PRNGKey(args.seed)
     dropout = args.dropout
@@ -48,6 +60,7 @@ if __name__ == "__main__":
     num_epochs = args.epochs
     n_nodes = adj.shape[0]
     n_feats = features.shape[1]
+    early_stopping = args.early_stop
 
     init_fun, predict_fun = GCN(nhid=hidden, 
                                 nclass=labels.shape[1],
@@ -66,23 +79,26 @@ if __name__ == "__main__":
     opt_state = opt_init(init_params)
 
     print("\nStarting training...")
+    val_values = []
     for epoch in range(num_epochs):
         start_time = time.time()
         batch = (features, labels, adj, True, rng_key, idx_train)
         opt_state = update(epoch, opt_state, batch)
         epoch_time = time.time() - start_time
 
-        if epoch % 5 == 0:
-            params = get_params(opt_state)
-            eval_batch = (features, labels, adj, False, rng_key, idx_val)
-            train_batch = (features, labels, adj, False, rng_key, idx_train)
-            train_loss = loss(params, train_batch)
-            train_acc = accuracy(params, train_batch)
-            val_acc = accuracy(params, eval_batch)
-            print(f"Iter {epoch}/{num_epochs} ({epoch_time:.4f} s) train_loss: {train_loss:.4f}, train_acc: {train_acc:.4f}, val_acc: {val_acc:.4f}")
+        params = get_params(opt_state)
+        eval_batch = (features, labels, adj, False, rng_key, idx_val)
+        train_batch = (features, labels, adj, False, rng_key, idx_train)
+        train_loss, train_acc = loss_accuracy(params, train_batch)
+        val_loss, val_acc = loss_accuracy(params, eval_batch)
+        val_values.append(val_loss.item())
+        print(f"Iter {epoch}/{num_epochs} ({epoch_time:.4f} s) train_loss: {train_loss:.4f}, train_acc: {train_acc:.4f}, val_loss: {val_loss:.4f}, val_acc: {val_acc:.4f}")
 
         # new random key at each iteration, othwerwise dropout uses always the same mask 
         rng_key, _ = random.split(rng_key)
+        if epoch > early_stopping and val_values[-1] > numpy.mean(val_values[-(early_stopping+1):-1]):
+            print("Early stopping...")
+            break
     
     # now run on the test set
     test_batch = (features, labels, adj, False, rng_key, idx_test)

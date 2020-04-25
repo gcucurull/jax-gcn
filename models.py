@@ -4,7 +4,7 @@ import jax.numpy as np
 from jax import lax, random
 from jax.experimental import stax
 from jax.experimental.stax import Relu, LogSoftmax
-from jax.nn.initializers import glorot_normal, normal, uniform
+from jax.nn.initializers import glorot_normal, glorot_uniform, normal, uniform, zeros
 import jax.nn as nn
 
 
@@ -36,23 +36,27 @@ def Dropout(rate):
     return init_fun, apply_fun
 
 
-def GraphConvolution(out_dim):
+def GraphConvolution(out_dim, bias=False):
     """
     Layer constructor function for a Graph Convolution layer similar to https://arxiv.org/abs/1609.02907
     """
     def init_fun(rng, input_shape):
         output_shape = input_shape[:-1] + (out_dim,)
         k1, k2 = random.split(rng)
-        stdv = 1. / math.sqrt(out_dim)
-        W_init, b_init = uniform(stdv), uniform(stdv)
+        W_init, b_init = glorot_uniform(), zeros
         W = W_init(k1, (input_shape[-1], out_dim))
-        b = b_init(k2, (out_dim,))
+        if bias:
+            b = b_init(k2, (out_dim,))
+        else:
+            b = None
         return output_shape, (W, b)
 
     def apply_fun(params, x, adj, **kwargs):
         W, b = params
-        support = np.dot(x, W) + b
+        support = np.dot(x, W)
         out = np.matmul(adj, support)
+        if bias:
+            out += b
         return out
 
     return init_fun, apply_fun
@@ -79,11 +83,13 @@ def GCN(nhid, nclass, dropout):
 
     def apply_fun(params, x, adj, is_training=False, **kwargs):
         rng = kwargs.pop('rng', None)
+        k1, k2, k3, k4 = random.split(rng, 4)
 
-        x = gc1_fun(params[0], x, adj, rng=rng)
+        x = drop_fun(None, x, is_training=is_training, rng=k1)
+        x = gc1_fun(params[0], x, adj, rng=k2)
         x = nn.relu(x)
-        x = drop_fun(None, x, is_training=is_training, rng=rng)
-        x = gc2_fun(params[1], x, adj, rng=rng)
+        x = drop_fun(None, x, is_training=is_training, rng=k3)
+        x = gc2_fun(params[1], x, adj, rng=k4)
         x = nn.log_softmax(x)
         return x
     

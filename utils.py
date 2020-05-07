@@ -24,47 +24,6 @@ def parse_index_file(filename):
     return index
 
 
-def load_data_old(path: Path=Path('data_old/cora/'), dataset: str='cora'):
-    """
-    Load citation network dataset (cora only for now).
-    This function has been adapted from https://github.com/tkipf/pygcn
-    """
-    print('Loading {} dataset...'.format(dataset))
-
-    idx_features_labels = np.genfromtxt("{}.content".format(path / dataset),
-                                        dtype=np.dtype(str))
-    features = sp.csr_matrix(idx_features_labels[:, 1:-1], dtype=np.float32)
-    labels = encode_onehot(idx_features_labels[:, -1])
-
-    # build graph
-    idx = np.array(idx_features_labels[:, 0], dtype=np.int32)
-    idx_map = {j: i for i, j in enumerate(idx)}
-    edges_unordered = np.genfromtxt("{}.cites".format(path / dataset),
-                                    dtype=np.int32)
-    edges = np.array(list(map(idx_map.get, edges_unordered.flatten())),
-                     dtype=np.int32).reshape(edges_unordered.shape)
-    adj = sp.coo_matrix((np.ones(edges.shape[0]), (edges[:, 0], edges[:, 1])),
-                        shape=(labels.shape[0], labels.shape[0]),
-                        dtype=np.float32)
-
-    # build symmetric adjacency matrix
-    adj = adj + adj.T.multiply(adj.T > adj) - adj.multiply(adj.T > adj)
-
-    features = normalize(features)
-    adj = normalize(adj + sp.eye(adj.shape[0]))
-
-    idx_train = list(range(140))
-    idx_val = list(range(200, 500))
-    idx_test = list(range(500, 1500))
-
-    features = np.array(features.todense())
-
-    # JAX doesn't support sparse matrices yet
-    adj = np.asarray(adj.todense())
-
-    return adj, features, labels, idx_train, idx_val, idx_test
-
-
 def normalize(mx):
     """Row-normalize sparse matrix"""
     rowsum = np.array(mx.sum(1))
@@ -101,7 +60,11 @@ def preprocess_adj(adj):
     return adj_normalized
 
 
-def load_data(dataset_str: str = 'cora'):
+def to_sparse(adj):
+    return (adj.nonzero(), adj.data)
+
+
+def load_data(dataset_str: str = 'cora', sparse: bool = False):
     """
     Loads input data from gcn/data directory
     ind.dataset_str.x => the feature vectors of the training instances as scipy.sparse.csr.csr_matrix object;
@@ -158,8 +121,11 @@ def load_data(dataset_str: str = 'cora'):
     features = preprocess_features(features)
     adj = preprocess_adj(adj)
 
-    # JAX doesn't support sparse matrices yet
-    adj = np.asarray(adj.todense())
+    if sparse:
+        adj = to_sparse(adj) # custom format
+    else:
+        adj = np.asarray(adj.todense())
+
     features = np.asarray(features.todense())
 
     return adj, features, labels, list(idx_train), list(idx_val), idx_test

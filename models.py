@@ -1,11 +1,14 @@
 import math
 
+import jax
 import jax.numpy as np
 from jax import lax, random
 from jax.experimental import stax
 from jax.experimental.stax import Relu, LogSoftmax
 from jax.nn.initializers import glorot_normal, glorot_uniform, normal, uniform, zeros
 import jax.nn as nn
+
+from sparse_matmul import sp_matmul
 
 
 def Dropout(rate):
@@ -36,10 +39,16 @@ def Dropout(rate):
     return init_fun, apply_fun
 
 
-def GraphConvolution(out_dim, bias=False):
+def GraphConvolution(out_dim, bias=False, sparse=False):
     """
     Layer constructor function for a Graph Convolution layer similar to https://arxiv.org/abs/1609.02907
     """
+    def matmul(A, B, shape):
+        if sparse:
+            return sp_matmul(A, B, shape)
+        else:
+            return np.matmul(A, B)
+
     def init_fun(rng, input_shape):
         output_shape = input_shape[:-1] + (out_dim,)
         k1, k2 = random.split(rng)
@@ -54,22 +63,22 @@ def GraphConvolution(out_dim, bias=False):
     def apply_fun(params, x, adj, **kwargs):
         W, b = params
         support = np.dot(x, W)
-        out = np.matmul(adj, support)
+        out = matmul(adj, support, support.shape[0])
         if bias:
             out += b
         return out
 
     return init_fun, apply_fun
 
-def GCN(nhid, nclass, dropout):
+def GCN(nhid: int, nclass: int, dropout: float, sparse: bool = False):
     """
     This function implements the GCN model that uses 2 Graph Convolutional layers.
     The code is adapted from jax.experimental.stax.serial to be able to use
     the adjacency matrix as an argument to the GC layers but not the others.
     """
-    gc1_init, gc1_fun = GraphConvolution(nhid)
+    gc1_init, gc1_fun = GraphConvolution(nhid, sparse=sparse)
     _, drop_fun = Dropout(dropout)
-    gc2_init, gc2_fun = GraphConvolution(nclass)
+    gc2_init, gc2_fun = GraphConvolution(nclass, sparse=sparse)
 
     init_funs = [gc1_init, gc2_init]
 

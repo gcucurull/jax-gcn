@@ -48,23 +48,27 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--early_stop', type=int, default=10)
     parser.add_argument('--dataset', type=str, default='cora')
+    parser.add_argument('--sparse', dest='sparse', action='store_true')
+    parser.add_argument('--no-sparse', dest='sparse', action='store_false')
+    parser.set_defaults(sparse=True)
     args = parser.parse_args()
 
     # Load data
-    adj, features, labels, idx_train, idx_val, idx_test = load_data(args.dataset)
+    adj, features, labels, idx_train, idx_val, idx_test = load_data(args.dataset, sparse = args.sparse)
 
     rng_key = random.PRNGKey(args.seed)
     dropout = args.dropout
     step_size = args.lr
     hidden = args.hidden
     num_epochs = args.epochs
-    n_nodes = adj.shape[0]
+    n_nodes = features.shape[0]
     n_feats = features.shape[1]
     early_stopping = args.early_stop
 
     init_fun, predict_fun = GCN(nhid=hidden, 
                                 nclass=labels.shape[1],
-                                dropout=dropout)
+                                dropout=dropout,
+                                sparse=args.sparse)
     input_shape = (-1, n_nodes, n_feats)
     rng_key, init_key = random.split(rng_key)
     _, init_params = init_fun(init_key, input_shape)

@@ -1,9 +1,13 @@
+import jax
+from jax.config import config
+config.update("jax_enable_x64", True)
+
 import numpy
 import jax.numpy as np
 
 from sparse_matmul import sp_matmul
 
-tolerance = 1e-5
+tolerance = 1e-10
 sparsity = 0.95
 
 def distance(A, B):
@@ -19,9 +23,9 @@ def test_square_sparse_matrix_1():
 
     indexes = A.nonzero()
     values = A[indexes]
-    sp_A = (indexes, values, A.shape)
+    sp_A = (indexes, values)
 
-    sp_res = sp_matmul(sp_A, B)
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
     res = np.matmul(A, B)
 
     diff = distance(sp_res, res)
@@ -37,9 +41,9 @@ def test_square_sparse_matrix_fail():
 
     indexes = A.nonzero()
     values = A[indexes]
-    sp_A = (indexes, values, A.shape)
+    sp_A = (indexes, values)
 
-    sp_res = sp_matmul(sp_A, B)
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
     res = np.matmul(A.T, B)
 
     diff = distance(sp_res, res)
@@ -55,9 +59,9 @@ def test_rectangular_matrix_1():
 
     indexes = A.nonzero()
     values = A[indexes]
-    sp_A = (indexes, values, A.shape)
+    sp_A = (indexes, values)
 
-    sp_res = sp_matmul(sp_A, B)
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
     res = np.matmul(A, B)
 
     diff = distance(sp_res, res)
@@ -73,9 +77,9 @@ def test_rectangular_matrix_2():
 
     indexes = A.nonzero()
     values = A[indexes]
-    sp_A = (indexes, values, A.shape)
+    sp_A = (indexes, values)
 
-    sp_res = sp_matmul(sp_A, B)
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
     res = np.matmul(A, B)
 
     diff = distance(sp_res, res)
@@ -91,9 +95,9 @@ def test_rectangular_matrix_3():
 
     indexes = A.nonzero()
     values = A[indexes]
-    sp_A = (indexes, values, A.shape)
+    sp_A = (indexes, values)
 
-    sp_res = sp_matmul(sp_A, B)
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
     res = np.matmul(A, B)
 
     diff = distance(sp_res, res)
@@ -109,9 +113,9 @@ def test_square_sparse_matrix_2():
 
     indexes = A.nonzero()
     values = A[indexes]
-    sp_A = (indexes, values, A.shape)
+    sp_A = (indexes, values)
 
-    sp_res = sp_matmul(sp_A, B)
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
     res = np.matmul(A, B)
 
     diff = distance(sp_res, res)
@@ -127,9 +131,9 @@ def test_square_sparse_matrix_fail_2():
 
     indexes = A.nonzero()
     values = A[indexes]
-    sp_A = (indexes, values, A.shape)
+    sp_A = (indexes, values)
 
-    sp_res = sp_matmul(sp_A, B)
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
     res = np.matmul(A, numpy.random.rand(*B.shape))
 
     diff = distance(sp_res, res)

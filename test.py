@@ -121,6 +121,25 @@ def test_square_sparse_matrix_2():
     diff = distance(sp_res, res)
     print(diff)
     assert diff < tolerance
+
+def test_sym_sparse_matrix_2():
+    rows = 2000
+    mask  = numpy.random.rand(rows, rows) < sparsity
+    A = numpy.random.rand(rows, rows)
+    A[mask] = 0.0
+    A += A.T
+    B = numpy.random.rand(rows, 128)
+
+    indexes = A.nonzero()
+    values = A[indexes]
+    sp_A = (indexes, values)
+
+    sp_res = sp_matmul(sp_A, B, A.shape[0])
+    res = np.matmul(A, B)
+
+    diff = distance(sp_res, res)
+    print(diff)
+    assert diff < tolerance
  
 def test_square_sparse_matrix_fail_2():
     rows = 2000

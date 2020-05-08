@@ -12,8 +12,8 @@ def sp_matmul(A, B, shape):
     """
     assert B.ndim == 2
     indexes, values = A
-    target, source = indexes
-    in_ = B.take(source, axis=0)
+    rows, cols = indexes
+    in_ = B.take(cols, axis=0)
     prod = in_*values[:, None]
-    res = jax.ops.segment_sum(prod, target, shape)
+    res = jax.ops.segment_sum(prod, rows, shape)
     return res
